@@ -20,11 +20,10 @@ install_deps(){
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
   apt-get install -y curl wget jq unzip socat lsof git build-essential \
-  ufw nginx sqlite3 openssl ca-certificates gnupg netcat-openbsd  if ! ce node; then
+  ufw nginx sqlite3 openssl ca-certificates gnupg netcat-openbsd 
     echo -e "${GREEN}[+] Install Node.js LTS...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
-  fi
   if ! ce sponge; then
     cat >/usr/bin/sponge <<'SP'
 #!/usr/bin/env bash
