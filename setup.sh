@@ -11,6 +11,7 @@ ce() { command -v "$1" >/dev/null 2>&1; }
 prompt_domain(){
   echo -e "${YELLOW}Masukkan subdomain (contoh: panel.example.com):${NC}"
   read -r DOMAIN
+      echo "$domain" > /etc/xray/DOMAIN
   [[ -z "$DOMAIN" ]] && echo -e "${RED}[ERR] Subdomain kosong.${NC}" && exit 1
 }
 
@@ -78,17 +79,14 @@ download_files(){
 
 issue_cert(){
   echo -e "${GREEN}[+] Dapatkan sertifikat TLS (acme.sh)...${NC}"
-  if [[ ! -d /root/.acme.sh ]]; then
-    curl -s https://get.acme.sh | sh -s email=skip@example.com >/dev/null 2>&1 || true
-  fi
-  ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1 || true
-  systemctl stop nginx || true
-  ~/.acme.sh/acme.sh --issue -d "$DOMAIN" --standalone --keylength ec-256 --force
-  mkdir -p /etc/ssl/xray
-  ~/.acme.sh/acme.sh --install-cert -d "$DOMAIN" --ecc \
-    --key-file       /etc/ssl/xray/private.key \
-    --fullchain-file /etc/ssl/xray/fullchain.cer \
-    --reloadcmd     "systemctl reload nginx"
+systemctl stop nginx
+    mkdir /root/.acme.sh
+    curl https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh
+    chmod +x /root/.acme.sh/acme.sh
+    /root/.acme.sh/acme.sh --upgrade --auto-upgrade
+    /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+    /root/.acme.sh/acme.sh --issue -d $DOMAIN--standalone -k ec-256
+    /root/.acme.sh/acme.sh --installcert -d $DOMAIN--fullchainpath /etc/xray/xray.crt --keypath /etc/xray/xray.key --ecc
 }
 
 setup_nginx(){
