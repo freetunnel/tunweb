@@ -1,7 +1,4 @@
-#!/usr/bin/env bash
-# Xray + Nginx + acme.sh + Web UI (Node.js) installer
-# Protocols: VMess, VLESS, Trojan — WS :80, WSS :443 (TLS)
-# Repo: https://github.com/freetunnel/tunweb
+#!/usr/bin/bash 
 
 set -euo pipefail
 
