@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+CONFIG=/etc/xray/config.json
+DB=/etc/xray/users.json
+
+reload_xray() { systemctl reload xray || systemctl restart xray; }
+now_ts() { date +%s; }
+
+add_user() {
+  local proto="$1" user="$2" id="$3" days="$4" quota_gb="$5" ip_limit="$6"
+  local exp_ts=$(( $(now_ts) + days*24*3600 ))
+  local email="$user@$proto"
+
+  case "$proto" in
+    vmess)
+      jq ".inbounds[] | select(.tag==\"vmess-ws\").settings.clients += [{\"id\":\"$id\",\"alterId\":0,\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+    vless)
+      jq ".inbounds[] | select(.tag==\"vless-ws\").settings.clients += [{\"id\":\"$id\",\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+    trojan)
+      jq ".inbounds[] | select(.tag==\"trojan-ws\").settings.clients += [{\"password\":\"$id\",\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+    *) echo "proto invalid"; exit 1;;
+  esac
+
+  [[ -f "$DB" ]] || echo '{"users":[]}' >"$DB"
+  jq ".users += [{\"username\":\"$user\",\"protocol\":\"$proto\",\"id\":\"$id\",\"email\":\"$email\",\"quota_gb\":$quota_gb,\"ip_limit\":$ip_limit,\"expiry\":$exp_ts,\"enabled\":true,\"used_bytes\":0}]" "$DB" | sponge "$DB"
+  reload_xray
+  echo "$email"
+}
+
+disable_user() {
+  local email="$1"
+  jq "(.inbounds[] | select(.tag==\"vmess-ws\").settings.clients) |= map(select(.email != \"$email\"))" "$CONFIG" | sponge "$CONFIG"
+  jq "(.inbounds[] | select(.tag==\"vless-ws\").settings.clients) |= map(select(.email != \"$email\"))" "$CONFIG" | sponge "$CONFIG"
+  jq "(.inbounds[] | select(.tag==\"trojan-ws\").settings.clients) |= map(select(.email != \"$email\"))" "$CONFIG" | sponge "$CONFIG"
+  jq "(.users[] | select(.email==\"$email\")).enabled = false" "$DB" | sponge "$DB"
+  reload_xray
+}
+
+enable_user() {
+  local email="$1"
+  local proto=$(jq -r ".users[] | select(.email==\"$email\").protocol" "$DB")
+  local id=$(jq -r ".users[] | select(.email==\"$email\").id" "$DB")
+  [[ -z "$proto" || -z "$id" ]] && { echo "user tidak ditemukan"; exit 1; }
+  case "$proto" in
+    vmess)
+      jq ".inbounds[] | select(.tag==\"vmess-ws\").settings.clients += [{\"id\":\"$id\",\"alterId\":0,\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+    vless)
+      jq ".inbounds[] | select(.tag==\"vless-ws\").settings.clients += [{\"id\":\"$id\",\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+    trojan)
+      jq ".inbounds[] | select(.tag==\"trojan-ws\").settings.clients += [{\"password\":\"$id\",\"email\":\"$email\"}]" "$CONFIG" | sponge "$CONFIG" ;;
+  esac
+  jq "(.users[] | select(.email==\"$email\")).enabled = true" "$DB" | sponge "$DB"
+  reload_xray
+}
+
+usage() { echo "xuser add <vmess|vless|trojan> <username> <id|uuid|passwd> <days> <quotaGB> <ipLimit> | disable <email> | enable <email>"; }
+
+[[ $# -lt 1 ]] && usage && exit 0
+case "$1" in
+  add) add_user "$2" "$3" "$4" "$5" "$6" "$7" ;;
+  disable) disable_user "$2" ;;
+  enable) enable_user "$2" ;;
+  *) usage; exit 1;;
+esac
