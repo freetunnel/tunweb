@@ -18,9 +18,8 @@ install_deps(){
   echo -e "${GREEN}[+] Install dependensi...${NC}"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
-  apt-get install -y curl wget jq unzip socat netcat lsof git build-essential \
-    ufw nginx sqlite3 openssl ca-certificates gnupg
-  if ! ce node; then
+  apt-get install -y curl wget jq unzip socat lsof git build-essential \
+  ufw nginx sqlite3 openssl ca-certificates gnupg netcat-openbsd  if ! ce node; then
     echo -e "${GREEN}[+] Install Node.js LTS...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
